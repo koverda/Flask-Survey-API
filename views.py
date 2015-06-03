@@ -1,17 +1,7 @@
-#!flask/bin/python
+from flask import render_template, jsonify, abort, make_response, request, url_for
+from app import app
 
-from flask import Flask, jsonify, abort, make_response, request, url_for
-from flask.ext.sqlalchemy import SQLAlchemy
-
-# TODO: 
-# 1. fcn to make the tasklist from taskid
-# 2. db interaction!
-# 3. change to surveys, questions, answers
-
-app = Flask(__name__)
-app.config.from_object('config')
-db = SQLAlchemy(app)
-
+# database, for now
 tasks = [
     {
         'id': 1,
@@ -126,6 +116,3 @@ def delete_task(task_id):
 @app.errorhandler(404)
 def not_found(error):
 	return make_response(jsonify({'error': 'Not found'}), 404)
-
-if __name__ == '__main__':
-    app.run(debug=True)
