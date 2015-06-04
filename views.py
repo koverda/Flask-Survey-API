@@ -1,5 +1,5 @@
 from flask import render_template, jsonify, abort, make_response, request, url_for
-from app import app
+from app import app, models
 
 # database, for now
 tasks = [
@@ -17,6 +17,8 @@ tasks = [
     }
 ]
 
+surveys = models.Survey.query.all()
+
 # helper to make URIs for navigating API
 def make_public_task(task):
 	new_task = {}
@@ -32,6 +34,11 @@ def make_public_task(task):
 @app.route('/', methods = ['GET'])
 def index():
     return "Hello, World!"
+
+# list of surveys
+@app.route('/surveys', methods=['GET'])
+def get_surveys():
+    return jsonify({'surveys': [survey.json for survey in surveys]})
 
 # get a list of tasks
 @app.route('/tasks', methods=['GET'])

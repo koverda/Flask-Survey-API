@@ -1,4 +1,26 @@
 from app import db
+import json
+
+def to_json(inst, cls):
+    """
+    Jsonify the sql alchemy query result.
+    """
+    convert = dict()
+    # add your coversions for things like datetime's 
+    # and what-not that aren't serializable.
+    d = dict()
+    for c in cls.__table__.columns:
+        v = getattr(inst, c.name)
+        if c.type in convert.keys() and v is not None:
+            try:
+                d[c.name] = convert[c.type](v)
+            except:
+                d[c.name] = "Error:  Failed to covert using ", str(convert[c.type])
+        elif v is None:
+            d[c.name] = str()
+        else:
+            d[c.name] = v
+    return json.dumps(d)
 
 class Survey(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
@@ -9,6 +31,10 @@ class Survey(db.Model):
 	def __repr__(self):
 		return '<Survey %r>' % (self.name)
 
+	@property
+	def json(self):
+		return to_json(self, self.__class__)	
+
 class Response(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	time_created = db.Column(db.DateTime)
@@ -18,6 +44,10 @@ class Response(db.Model):
 	def __repr__(self):
 		return '<Response %r>' % (self.id)
 
+	@property
+	def json(self):
+		return to_json(self, self.__class__)
+
 class Question(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	text_q = db.Column(db.String(511))
@@ -25,6 +55,10 @@ class Question(db.Model):
 
 	def __repr__(self):
 		return '<Question %r>' % (self.text_q)
+
+	@property
+	def json(self):
+		return to_json(self, self.__class__)
 
 class Answer(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
@@ -34,3 +68,7 @@ class Answer(db.Model):
 
 	def __repr__(self):
 		return '<Answer %r>' % (self.id)
+
+	@property
+	def json(self):
+		return to_json(self, self.__class__)

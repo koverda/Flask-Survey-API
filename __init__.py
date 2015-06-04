@@ -1,8 +1,3 @@
-# TODO: 
-# 1. fcn to make the tasklist from taskid
-# 2. db interaction!
-# 3. change to surveys, questions, answers
-
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 
