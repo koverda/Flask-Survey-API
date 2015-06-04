@@ -1,9 +1,9 @@
 from app import db
 import json
 
-def to_json(inst, cls):
+def to_dict(inst, cls):
     """
-    Jsonify the sql alchemy query result.
+    Convert the sql alchemy query result to a dictionary.
     """
     convert = dict()
     # add your coversions for things like datetime's 
@@ -20,7 +20,7 @@ def to_json(inst, cls):
             d[c.name] = str()
         else:
             d[c.name] = v
-    return json.dumps(d)
+    return d
 
 class Survey(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
@@ -32,8 +32,8 @@ class Survey(db.Model):
 		return '<Survey %r>' % (self.name)
 
 	@property
-	def json(self):
-		return to_json(self, self.__class__)	
+	def dict(self):
+	    return to_dict(self, self.__class__)
 
 class Response(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
@@ -43,10 +43,10 @@ class Response(db.Model):
 
 	def __repr__(self):
 		return '<Response %r>' % (self.id)
-
+		
 	@property
-	def json(self):
-		return to_json(self, self.__class__)
+	def dict(self):
+	    return to_dict(self, self.__class__)
 
 class Question(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
@@ -57,8 +57,8 @@ class Question(db.Model):
 		return '<Question %r>' % (self.text_q)
 
 	@property
-	def json(self):
-		return to_json(self, self.__class__)
+	def dict(self):
+	    return to_dict(self, self.__class__)
 
 class Answer(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
@@ -70,5 +70,5 @@ class Answer(db.Model):
 		return '<Answer %r>' % (self.id)
 
 	@property
-	def json(self):
-		return to_json(self, self.__class__)
+	def dict(self):
+	    return to_dict(self, self.__class__)

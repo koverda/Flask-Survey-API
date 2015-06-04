@@ -18,17 +18,20 @@ tasks = [
 ]
 
 surveys = models.Survey.query.all()
+surveys_as_list = []
+for survey in surveys:
+	surveys_as_list.append(survey.dict)
 
 # helper to make URIs for navigating API
-def make_public_task(task):
-	new_task = {}
-	for field in task:
-		if field == 'id':
-			new_task['uri'] = url_for('get_task', task_id=task['id'],
-							  _external=True)
-		else:
-			new_task[field] = task[field]
-	return new_task
+def make_uri(thing, fcn_name):
+    new_thing = {}
+    for field in thing:
+        if field == 'id':
+            new_thing['uri'] = url_for(fcn_name, id=thing['id'], _external=True)
+        else:
+            new_thing[field] = thing[field]
+    return new_thing
+
 
 # index page
 @app.route('/', methods = ['GET'])
@@ -38,21 +41,22 @@ def index():
 # list of surveys
 @app.route('/surveys', methods=['GET'])
 def get_surveys():
-    return jsonify({'surveys': [survey.json for survey in surveys]})
+	# return jsonify({'surveys': [survey.dict for survey in surveys]})
+	return	jsonify({'surveys': [make_uri(survey, 'get_survey') for survey in surveys_as_list]})
 
 # get a list of tasks
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
-    return jsonify({'tasks': [make_public_task(task) for task in tasks]})
+    return jsonify({'tasks': [make_uri(task,'get_task') for task in tasks]})
 
 # get a specific task
-@app.route('/tasks/<int:task_id>', methods=['GET'])
-def get_task(task_id):	
+@app.route('/tasks/<int:id>', methods=['GET'])
+def get_task(id):	
 
-	# check for tasks which match the task_id
+	# check for tasks which match the id
 	tasklist = []
 	for task in tasks:
-		if task['id'] == task_id:
+		if task['id'] == id:
 			tasklist.append(task)
 	
 	# if you don't find any, return 404
@@ -61,6 +65,23 @@ def get_task(task_id):
 
 	# return first match
 	return jsonify({'task': tasklist[0]})
+
+# get a survey
+@app.route('/surveys/<int:id>', methods=['GET'])
+def get_survey(id):
+	# check for tasks which match the id
+	surveylist = []
+	for survey in surveys_as_list:
+		if survey['id'] == id:
+			surveylist.append(survey)
+	
+	# if you don't find any, return 404
+	if len(surveylist) == 0:
+		abort(404)
+
+	# return first match
+	return jsonify({'survey': surveylist[0]})
+
 
 # add new items to task database
 @app.route('/tasks', methods=['POST'])
