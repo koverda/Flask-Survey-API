@@ -1,2 +1,8 @@
 
 env-flask-rest/pip-selfcheck.json
+env-flask-rest/*
+*.pyc
+
+app/__init__.pyc
+
+*.pyc

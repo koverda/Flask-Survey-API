@@ -17,10 +17,14 @@ tasks = [
     }
 ]
 
-surveys = models.Survey.query.all()
-surveys_as_list = []
-for survey in surveys:
-	surveys_as_list.append(survey.dict)
+# pulling and formatting model data as needed
+def refresh_model(model_obj):
+	model_as_list = []
+	model_ents = model_obj.query.all()
+	for model_ent in model_ents:
+		model_as_list.append(model_ent.dict)
+	return model_as_list
+
 
 # helper to make URIs for navigating API
 def make_uri(thing, fcn_name):
@@ -39,10 +43,80 @@ def index():
     return "Hello, World!"
 
 # list of surveys
+@app.route('/surveys/', methods=['GET'])
 @app.route('/surveys', methods=['GET'])
 def get_surveys():
-	# return jsonify({'surveys': [survey.dict for survey in surveys]})
-	return	jsonify({'surveys': [make_uri(survey, 'get_survey') for survey in surveys_as_list]})
+	surveys_as_list = refresh_model(models.Survey)
+	return	jsonify({'surveys': [make_uri(survey, 'get_survey') for \
+			survey in surveys_as_list]})
+
+# list of questions
+@app.route('/questions/', methods=['GET'])
+@app.route('/questions', methods=['GET'])
+def get_questions():
+	questions_as_list = refresh_model(models.Question)
+	return	jsonify({'questions': [make_uri(question, 'get_question') for \
+			question in questions_as_list]})
+
+# get a specific survey
+@app.route('/surveys/<int:id>/', methods=['GET'])
+@app.route('/surveys/<int:id>', methods=['GET'])
+def get_survey(id):
+	surveys_as_list = refresh_model(models.Survey)
+
+	# check for tasks which match the id
+	surveylist = []
+	for survey in surveys_as_list:
+		if survey['id'] == id:
+			surveylist.append(survey)
+	
+	# if you don't find any, return 404
+	if len(surveylist) == 0:
+		abort(404)
+
+	# return first match
+	return jsonify({'survey': surveylist[0]})
+
+# get a specific question
+@app.route('/questions/<int:id>/', methods=['GET'])
+@app.route('/questions/<int:id>', methods=['GET'])
+def get_question(id):
+	questions_as_list = refresh_model(models.Question)
+
+	# check for tasks which match the id
+	questionlist = []
+	for question in questions_as_list:
+		if question['id'] == id:
+			questionlist.append(question)
+	
+	# if you don't find any, return 404
+	if len(questionlist) == 0:
+		abort(404)
+
+	# return first match
+	return jsonify({'question': questionlist[0]})
+
+# add new survey
+@app.route('/surveys/', methods=['POST'])
+@app.route('/surveys', methods=['POST'])
+def create_survey():
+	# if not a json request, or request doesn't have name, return 400
+	if not request.json or not 'name' in request.json:
+		abort(400)
+	try:
+		survey = models.Survey(name=str(request.json['name']), 
+							   list_q=str(request.json['list_q']))
+		
+		# add survey to db
+		db.session.add(survey)
+		db.session.commit()
+		
+		#return survey you added and success code
+		return jsonify({'task': survey.dict}), 201
+	except:
+		abort(400)
+
+# ------------- task stuff ------------
 
 # get a list of tasks
 @app.route('/tasks', methods=['GET'])
@@ -65,23 +139,6 @@ def get_task(id):
 
 	# return first match
 	return jsonify({'task': tasklist[0]})
-
-# get a survey
-@app.route('/surveys/<int:id>', methods=['GET'])
-def get_survey(id):
-	# check for tasks which match the id
-	surveylist = []
-	for survey in surveys_as_list:
-		if survey['id'] == id:
-			surveylist.append(survey)
-	
-	# if you don't find any, return 404
-	if len(surveylist) == 0:
-		abort(404)
-
-	# return first match
-	return jsonify({'survey': surveylist[0]})
-
 
 # add new items to task database
 @app.route('/tasks', methods=['POST'])
