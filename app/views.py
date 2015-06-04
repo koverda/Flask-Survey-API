@@ -1,7 +1,7 @@
 from flask import render_template, jsonify, abort, make_response, request, url_for
-from app import app, models
+from app import app, models, db
 
-# database, for now
+# debug "database"
 tasks = [
     {
         'id': 1,
@@ -25,8 +25,7 @@ def refresh_model(model_obj):
 		model_as_list.append(model_ent.dict)
 	return model_as_list
 
-
-# helper to make URIs for navigating API
+# make URIs for navigating API
 def make_uri(thing, fcn_name):
     new_thing = {}
     for field in thing:
@@ -36,15 +35,22 @@ def make_uri(thing, fcn_name):
             new_thing[field] = thing[field]
     return new_thing
 
+# searches list for id
+def match_id(check_list, check_id):
+	matches = []
+	for item in check_list:
+		if item['id'] == check_id:
+			matches.append(item)
+	return(matches)
 
 # index page
 @app.route('/', methods = ['GET'])
 def index():
     return "Hello, World!"
+    # TODO: add root contents (surveys, questions, etc)
 
 # list of surveys
 @app.route('/surveys/', methods=['GET'])
-@app.route('/surveys', methods=['GET'])
 def get_surveys():
 	surveys_as_list = refresh_model(models.Survey)
 	return	jsonify({'surveys': [make_uri(survey, 'get_survey') for \
@@ -52,7 +58,6 @@ def get_surveys():
 
 # list of questions
 @app.route('/questions/', methods=['GET'])
-@app.route('/questions', methods=['GET'])
 def get_questions():
 	questions_as_list = refresh_model(models.Question)
 	return	jsonify({'questions': [make_uri(question, 'get_question') for \
@@ -60,15 +65,13 @@ def get_questions():
 
 # get a specific survey
 @app.route('/surveys/<int:id>/', methods=['GET'])
-@app.route('/surveys/<int:id>', methods=['GET'])
 def get_survey(id):
+	
+	# update from DB
 	surveys_as_list = refresh_model(models.Survey)
 
-	# check for tasks which match the id
-	surveylist = []
-	for survey in surveys_as_list:
-		if survey['id'] == id:
-			surveylist.append(survey)
+	# check for surveys which match the id
+	surveylist = match_id(surveys_as_list, id)
 	
 	# if you don't find any, return 404
 	if len(surveylist) == 0:
@@ -79,15 +82,13 @@ def get_survey(id):
 
 # get a specific question
 @app.route('/questions/<int:id>/', methods=['GET'])
-@app.route('/questions/<int:id>', methods=['GET'])
 def get_question(id):
+	
+	# update from DB
 	questions_as_list = refresh_model(models.Question)
 
-	# check for tasks which match the id
-	questionlist = []
-	for question in questions_as_list:
-		if question['id'] == id:
-			questionlist.append(question)
+	# check for questions which match the id
+	questionlist = match_id(questions_as_list, id)
 	
 	# if you don't find any, return 404
 	if len(questionlist) == 0:
@@ -98,11 +99,12 @@ def get_question(id):
 
 # add new survey
 @app.route('/surveys/', methods=['POST'])
-@app.route('/surveys', methods=['POST'])
 def create_survey():
+	
 	# if not a json request, or request doesn't have name, return 400
 	if not request.json or not 'name' in request.json:
 		abort(400)
+
 	try:
 		survey = models.Survey(name=str(request.json['name']), 
 							   list_q=str(request.json['list_q']))
@@ -113,9 +115,50 @@ def create_survey():
 		
 		#return survey you added and success code
 		return jsonify({'task': survey.dict}), 201
+
 	except:
 		abort(400)
 
+# update survey
+@app.route('/surveys/<int:id>/', methods=['PUT'])
+def update_survey(id):
+
+	# check for tasks which match the task_id
+	survey_to_update = models.Survey.query.filter_by(id=id).first()
+
+	# validate request	
+	if survey_to_update == None:
+		abort(404)
+	if not request.json:
+		abort(400)
+	if 'name' in request.json and type(request.json['name']) != unicode:
+		abort(400)
+	if 'list_q' in request.json and type(request.json['name']) is not unicode:
+		abort(400)
+
+	# make this work with DB
+	survey_to_update.name = request.json.get('name', survey_to_update.name)
+	survey_to_update.list_q = request.json.get('list_q', survey_to_update.list_q)
+	db.session.commit()
+
+	return jsonify({'task': survey_to_update.dict})
+
+# delete survey from database
+@app.route('/surveys/<int:id>/', methods=['DELETE'])
+def delete_survey(id):
+
+	# finding survey
+	survey_to_delete = models.Survey.query.filter_by(id=id).first()
+	if survey_to_delete == None:
+		abort(404)
+
+	# deleting from db
+	db.session.delete(survey_to_delete)
+	db.session.commit()
+
+	return jsonify({'result': True})
+
+'''
 # ------------- task stuff ------------
 
 # get a list of tasks
@@ -195,6 +238,7 @@ def delete_task(task_id):
 		abort(404)
 	tasks.remove(tasklist[0])
 	return jsonify({'result': True})
+'''	
 
 # error handlers
 # 404 handler to keep API responses JSON (flask's default 404 is html)

@@ -6,3 +6,5 @@ env-flask-rest/*
 app/__init__.pyc
 
 *.pyc
+
+*.pyc
