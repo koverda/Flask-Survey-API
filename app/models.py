@@ -1,5 +1,6 @@
 from app import db
 import json
+import datetime
 
 def to_dict(inst, cls):
     """
@@ -37,13 +38,13 @@ class Survey(db.Model):
 
 class Response(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
-	time_created = db.Column(db.DateTime)
+	time_created = db.Column(db.DateTime, default = datetime.datetime.now)
 	id_surveys = db.Column(db.Integer, db.ForeignKey('survey.id'))
 	answers = db.relationship('Answer', backref='r_answer', lazy = 'dynamic')
 
 	def __repr__(self):
 		return '<Response %r>' % (self.id)
-		
+
 	@property
 	def dict(self):
 	    return to_dict(self, self.__class__)

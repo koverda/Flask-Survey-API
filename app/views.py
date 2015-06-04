@@ -1,21 +1,9 @@
-from flask import render_template, jsonify, abort, make_response, request, url_for
+from flask import render_template, jsonify, abort
+from flask import make_response, request, url_for
 from app import app, models, db
 
-# debug "database"
-tasks = [
-    {
-        'id': 1,
-        'title': u'Buy groceries',
-        'description': u'Milk, Cheese, Pizza, Fruit, Tylenol', 
-        'done': False
-    },
-    {
-        'id': 2,
-        'title': u'Learn Python',
-        'description': u'Need to find a good Python tutorial on the web', 
-        'done': False
-    }
-]
+
+# helper functions
 
 # pulling and formatting model data as needed
 def refresh_model(model_obj):
@@ -43,27 +31,44 @@ def match_id(check_list, check_id):
 			matches.append(item)
 	return(matches)
 
+
+# -------------------- Views --------------------
+
 # index page
 @app.route('/', methods = ['GET'])
 def index():
     return "Hello, World!"
     # TODO: add root contents (surveys, questions, etc)
+    # look at tables in db, pop em out as list/dict
 
-# list of surveys
+
+# -------------------- GET All Items Routers --------------------
 @app.route('/surveys/', methods=['GET'])
 def get_surveys():
 	surveys_as_list = refresh_model(models.Survey)
 	return	jsonify({'surveys': [make_uri(survey, 'get_survey') for \
 			survey in surveys_as_list]})
 
-# list of questions
 @app.route('/questions/', methods=['GET'])
 def get_questions():
 	questions_as_list = refresh_model(models.Question)
 	return	jsonify({'questions': [make_uri(question, 'get_question') for \
 			question in questions_as_list]})
 
-# get a specific survey
+@app.route('/responses/', methods=['GET'])
+def get_responses():
+	responses_as_list = refresh_model(models.Response)
+	return	jsonify({'responses': [make_uri(response, 'get_response') for \
+			response in responses_as_list]})
+
+@app.route('/answers/', methods=['GET'])
+def get_answers():
+	answers_as_list = refresh_model(models.Answer)
+	return	jsonify({'answers': [make_uri(answer, 'get_answer') for \
+			answer in answers_as_list]})
+
+
+# -------------------- GET Single Item Routers --------------------
 @app.route('/surveys/<int:id>/', methods=['GET'])
 def get_survey(id):
 	
@@ -80,7 +85,6 @@ def get_survey(id):
 	# return first match
 	return jsonify({'survey': surveylist[0]})
 
-# get a specific question
 @app.route('/questions/<int:id>/', methods=['GET'])
 def get_question(id):
 	
@@ -97,7 +101,40 @@ def get_question(id):
 	# return first match
 	return jsonify({'question': questionlist[0]})
 
-# add new survey
+@app.route('/responses/<int:id>/', methods=['GET'])
+def get_response(id):
+	
+	# update from DB
+	responses_as_list = refresh_model(models.Response)
+
+	# check for surveys which match the id
+	responselist = match_id(responses_as_list, id)
+	
+	# if you don't find any, return 404
+	if len(responselist) == 0:
+		abort(404)
+
+	# return first match
+	return jsonify({'response': responselist[0]})
+
+@app.route('/answers/<int:id>/', methods=['GET'])
+def get_answer(id):
+	
+	# update from DB
+	answers_as_list = refresh_model(models.Answer)
+
+	# check for surveys which match the id
+	answerlist = match_id(answers_as_list, id)
+	
+	# if you don't find any, return 404
+	if len(answerlist) == 0:
+		abort(404)
+
+	# return first match
+	return jsonify({'survey': answerlist[0]})
+
+
+# -------------------- POST Routers --------------------
 @app.route('/surveys/', methods=['POST'])
 def create_survey():
 	
@@ -119,11 +156,77 @@ def create_survey():
 	except:
 		abort(400)
 
-# update survey
+@app.route('/questions/', methods=['POST'])
+def create_question():
+	
+	# if not a json request, or request doesn't have a question text, return 400
+	if not request.json or not 'text_q' in request.json:
+		abort(400)
+
+	try:
+		question = models.Question(text_q=str(request.json['text_q']))
+		
+		# add survey to db
+		db.session.add(question)
+		db.session.commit()
+		
+		#return survey you added and success code
+		return jsonify({'task': question.dict}), 201
+
+	except:
+		abort(400)
+
+@app.route('/responses/', methods=['POST'])
+def create_response():
+	
+	# if not a json request, or request doesn't have related survey, return 400
+	if not request.json or not 'id_surveys' in request.json:
+		abort(400)
+
+	try:
+		response = models.Response(id_surveys=int(request.json['id_surveys']))
+		
+		# add survey to db
+		db.session.add(response)
+		db.session.commit()
+		
+		#return survey you added and success code
+		return jsonify({'task': response.dict}), 201
+
+	except:
+		abort(400)
+
+@app.route('/answers/', methods=['POST'])
+def create_answer():
+	
+	# if not a json request, or doesn't have answer text 
+	# or doesn't have a related survey response or related question
+	# throw a 400 error
+	if not request.json or not ('text_a' and 'id_questions' and 'id_responses')\
+			in request.json:
+		abort(400)
+
+	try:
+		answer = models.Answer(text_a=str(request.json['text_a']),
+							   id_questions=int(request.json['id_questions']),
+							   id_responses=int(request.json['id_responses']))
+		
+		# add survey to db
+		db.session.add(answer)
+		db.session.commit()
+		
+		#return survey you added and success code
+		return jsonify({'task': answer.dict}), 201
+
+	except:
+		abort(400)
+
+
+# -------------------- PUT Routers --------------------
 @app.route('/surveys/<int:id>/', methods=['PUT'])
 def update_survey(id):
 
-	# check for tasks which match the task_id
+	# check for surveys which match the id
 	survey_to_update = models.Survey.query.filter_by(id=id).first()
 
 	# validate request	
@@ -133,17 +236,91 @@ def update_survey(id):
 		abort(400)
 	if 'name' in request.json and type(request.json['name']) != unicode:
 		abort(400)
-	if 'list_q' in request.json and type(request.json['name']) is not unicode:
+	if 'list_q' in request.json and type(request.json['list_q']) is not unicode:
 		abort(400)
 
-	# make this work with DB
+    # update db
 	survey_to_update.name = request.json.get('name', survey_to_update.name)
-	survey_to_update.list_q = request.json.get('list_q', survey_to_update.list_q)
+	survey_to_update.list_q = request.json.get('list_q',survey_to_update.list_q)
 	db.session.commit()
 
-	return jsonify({'task': survey_to_update.dict})
+	return jsonify({'survey': survey_to_update.dict})
 
-# delete survey from database
+@app.route('/questions/<int:id>/', methods=['PUT'])
+def update_question(id):
+
+	# check for questions which match the id
+	question_to_update = models.Question.query.filter_by(id=id).first()
+
+	# validate request	
+	if question_to_update == None:
+		abort(404)
+	if not request.json:
+		abort(400)
+	if 'text_q' in request.json and type(request.json['text_q']) is not unicode:
+		abort(400)
+
+    # update db
+	question_to_update.list_q = \
+			request.json.get('text_q',question_to_update.text_q)
+	db.session.commit()
+
+	return jsonify({'question': question_to_update.dict})
+
+@app.route('/responses/<int:id>/', methods=['PUT'])
+def update_response(id):
+
+	# check for requests which match the id
+	response_to_update = models.Response.query.filter_by(id=id).first()
+
+	# validate request	
+	if response_to_update == None:
+		abort(404)
+	if not request.json:
+		abort(400)
+	if 'id_surveys' in request.json and type(request.json['id_surveys']) != unicode:
+		abort(400)
+
+
+    # update db
+	response_to_update.id_surveys = \
+			request.json.get('id_surveys', response_to_update.name)
+	db.session.commit()
+
+	return jsonify({'response': response_to_update.dict})
+
+@app.route('/answers/<int:id>/', methods=['PUT'])
+def update_answer(id):
+
+	# check for answers which match the answer_id
+	answer_to_update = models.Answer.query.filter_by(id=id).first()
+
+	# validate request	
+	if answer_to_update == None:
+		abort(404)
+	if not request.json:
+		abort(400)
+	if 'text_a' in request.json and type(request.json['text_a']) != unicode:
+		abort(400)
+	if 'id_questions' in request.json and type(request.json['id_questions']) \
+			is not unicode:
+		abort(400)
+	if 'id_responses' in request.json and type(request.json['id_responses']) \
+			is not unicode:
+		abort(400)
+
+    # update db
+	answer_to_update.text_a = \
+			request.json.get('text_a', answer_to_update.text_a)
+	answer_to_update.id_questions = \
+			request.json.get('id_questions',answer_to_update.id_questions)
+	answer_to_update.id_responses = \
+			request.json.get('id_responses',answer_to_update.id_responses)		
+	db.session.commit()
+
+	return jsonify({'answer': answer_to_update.dict})
+
+# -------------------- DELETE Routers --------------------
 @app.route('/surveys/<int:id>/', methods=['DELETE'])
 def delete_survey(id):
 
@@ -158,90 +335,54 @@ def delete_survey(id):
 
 	return jsonify({'result': True})
 
-'''
-# ------------- task stuff ------------
+@app.route('/questions/<int:id>/', methods=['DELETE'])
+def delete_question(id):
 
-# get a list of tasks
-@app.route('/tasks', methods=['GET'])
-def get_tasks():
-    return jsonify({'tasks': [make_uri(task,'get_task') for task in tasks]})
-
-# get a specific task
-@app.route('/tasks/<int:id>', methods=['GET'])
-def get_task(id):	
-
-	# check for tasks which match the id
-	tasklist = []
-	for task in tasks:
-		if task['id'] == id:
-			tasklist.append(task)
-	
-	# if you don't find any, return 404
-	if len(tasklist) == 0:
+	# finding question
+	question_to_delete = models.Question.query.filter_by(id=id).first()
+	if question_to_delete == None:
 		abort(404)
 
-	# return first match
-	return jsonify({'task': tasklist[0]})
+	# deleting from db
+	db.session.delete(question_to_delete)
+	db.session.commit()
 
-# add new items to task database
-@app.route('/tasks', methods=['POST'])
-def create_task():
-	# if not a json request, or request doesn't have title, return 400
-	if not request.json or not 'title' in request.json:
-		abort(400)
-	
-	# new task_id iterates latest task by 1
-	task = {
-		'id': tasks[-1]['id'] + 1,
-		'title': request.json['title'],
-		'description': request.json.get('description', ""),
-		'done': False
-	}
-	
-	tasks.append(task)
-	
-	return jsonify({'task': task}), 201
-
-# update items in database
-@app.route('/tasks/<int:task_id>', methods=['PUT'])
-def update_task(task_id):
-
-	# check for tasks which match the task_id
-	tasklist = []
-	for task in tasks:
-		if task['id'] == task_id:
-			tasklist.append(task)
-
-	if len(tasklist) == 0:
-		abort(404)
-	if not request.json:
-		abort(400)
-	if 'title' in request.json and type(request.json['title']) != unicode:
-		abort(400)
-	if 'description' in request.json and type(request.json['description']) is not unicode:
-		abort(400)
-	if 'done' in request.json and type(request.json['done']) is not bool:
-		abort(400)
-	tasklist[0]['title'] = request.json.get('title', tasklist[0]['title'])
-	tasklist[0]['description'] = request.json.get('description', tasklist[0]['description'])
-	tasklist[0]['done'] = request.json.get('done', tasklist[0]['done'])
-	return jsonify({'task': tasklist[0]})	
-
-# delete items from database
-@app.route('/tasks/<int:task_id>', methods=['DELETE'])
-def delete_task(task_id):
-	tasklist = []
-	for task in tasks:
-		if task['id'] == task_id:
-			tasklist.append(task)
-	if len(tasklist) == 0:
-		abort(404)
-	tasks.remove(tasklist[0])
 	return jsonify({'result': True})
-'''	
 
-# error handlers
-# 404 handler to keep API responses JSON (flask's default 404 is html)
+@app.route('/responses/<int:id>/', methods=['DELETE'])
+def delete_response(id):
+
+	# finding response
+	response_to_delete = models.Response.query.filter_by(id=id).first()
+	if response_to_delete == None:
+		abort(404)
+
+	# deleting from db
+	db.session.delete(response_to_delete)
+	db.session.commit()
+
+	return jsonify({'result': True})
+
+@app.route('/answers/<int:id>/', methods=['DELETE'])
+def delete_answer(id):
+
+	# finding answer
+	answer_to_delete = models.Answer.query.filter_by(id=id).first()
+	if answer_to_delete == None:
+		abort(404)
+
+	# deleting from db
+	db.session.delete(answer_to_delete)
+	db.session.commit()
+
+	return jsonify({'result': True})		
+
+
+# error handlers to keep API responses JSON (flask's default 404 is html)
 @app.errorhandler(404)
 def not_found(error):
 	return make_response(jsonify({'error': 'Not found'}), 404)
+
+@app.errorhandler(400)
+def not_found(error):
+	return make_response(jsonify({'error': 'Bad Request'}), 404)
