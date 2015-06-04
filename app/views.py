@@ -261,7 +261,7 @@ def update_question(id):
 		abort(400)
 
     # update db
-	question_to_update.list_q = \
+	question_to_update.text_q = \
 			request.json.get('text_q',question_to_update.text_q)
 	db.session.commit()
 
@@ -319,6 +319,7 @@ def update_answer(id):
 	db.session.commit()
 
 	return jsonify({'answer': answer_to_update.dict})
+
 
 # -------------------- DELETE Routers --------------------
 @app.route('/surveys/<int:id>/', methods=['DELETE'])
