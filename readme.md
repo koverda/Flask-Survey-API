@@ -1,4 +1,4 @@
-# ${1:Flask RESTful Survey API}
+# Flask RESTful Survey API
 
 ##To Do:
 
