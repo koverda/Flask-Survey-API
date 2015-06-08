@@ -19,11 +19,11 @@ def refresh_model(model_obj):
 
 	model_obj - model object to update and return
 	"""
-	model_as_list = []
+	model_list = []
 	model_ents = model_obj.query.all()
 	for model_ent in model_ents:
-		model_as_list.append(model_ent.dict)
-	return model_as_list
+		model_list.append(model_ent.dict)
+	return model_list
 
 def make_uri(thing, fcn_name):
 	"""Make URIs for navigating API
@@ -34,7 +34,7 @@ def make_uri(thing, fcn_name):
 	new_thing = {}
 	for field in thing:
 		if field == 'id':
-			new_thing['uri'] = url_for(fcn_name, id=thing['id'], _external=True)
+			new_thing['uri'] = url_for(fcn_name, id=thing['id'],_external=True)
 		else:
 			new_thing[field] = thing[field]
 	return new_thing
@@ -57,35 +57,38 @@ def match_id(check_list, check_id):
 # index page
 @app.route('/', methods = ['GET'])
 def index():
-	return "Hello, World!"
-	# TODO: add root contents (surveys, questions, etc)
-	# look at tables in db, pop em out as list/dict
+	table_list = [{'surveys' : url_for('get_surveys', _external = True )},
+			  {'responses' : url_for('get_responses', _external = True )},
+			  {'questions' : url_for('get_questions', _external = True )},
+			  {'answers' : url_for('get_answers', _external = True )}]
 
+	return jsonify({'api root': [item for item in table_list]})
+	 
 
 # -------------------- GET All Items Routers --------------------
 @app.route('/surveys/', methods=['GET'])
 def get_surveys():
-	surveys_as_list = refresh_model(models.Survey)
+	surveys_list = refresh_model(models.Survey)
 	return	jsonify({'surveys': [make_uri(survey, 'get_survey') for \
-			survey in surveys_as_list]})
+			survey in surveys_list]})
 
 @app.route('/questions/', methods=['GET'])
 def get_questions():
-	questions_as_list = refresh_model(models.Question)
+	questions_list = refresh_model(models.Question)
 	return	jsonify({'questions': [make_uri(question, 'get_question') for \
-			question in questions_as_list]})
+			question in questions_list]})
 
 @app.route('/responses/', methods=['GET'])
 def get_responses():
-	responses_as_list = refresh_model(models.Response)
+	responses_list = refresh_model(models.Response)
 	return	jsonify({'responses': [make_uri(response, 'get_response') for \
-			response in responses_as_list]})
+			response in responses_list]})
 
 @app.route('/answers/', methods=['GET'])
 def get_answers():
-	answers_as_list = refresh_model(models.Answer)
+	answers_list = refresh_model(models.Answer)
 	return	jsonify({'answers': [make_uri(answer, 'get_answer') for \
-			answer in answers_as_list]})
+			answer in answers_list]})
 
 
 # -------------------- GET Single Item Routers --------------------
@@ -93,10 +96,10 @@ def get_answers():
 def get_survey(id):
 	
 	# update from DB
-	surveys_as_list = refresh_model(models.Survey)
+	surveys_list = refresh_model(models.Survey)
 
 	# check for surveys which match the id
-	surveylist = match_id(surveys_as_list, id)
+	surveylist = match_id(surveys_list, id)
 	
 	# if you don't find any, return 404
 	if len(surveylist) == 0:
@@ -109,10 +112,10 @@ def get_survey(id):
 def get_question(id):
 	
 	# update from DB
-	questions_as_list = refresh_model(models.Question)
+	questions_list = refresh_model(models.Question)
 
 	# check for questions which match the id
-	questionlist = match_id(questions_as_list, id)
+	questionlist = match_id(questions_list, id)
 	
 	# if you don't find any, return 404
 	if len(questionlist) == 0:
@@ -125,10 +128,10 @@ def get_question(id):
 def get_response(id):
 	
 	# update from DB
-	responses_as_list = refresh_model(models.Response)
+	responses_list = refresh_model(models.Response)
 
 	# check for surveys which match the id
-	responselist = match_id(responses_as_list, id)
+	responselist = match_id(responses_list, id)
 	
 	# if you don't find any, return 404
 	if len(responselist) == 0:
@@ -141,10 +144,10 @@ def get_response(id):
 def get_answer(id):
 	
 	# update from DB
-	answers_as_list = refresh_model(models.Answer)
+	answers_list = refresh_model(models.Answer)
 
 	# check for surveys which match the id
-	answerlist = match_id(answers_as_list, id)
+	answerlist = match_id(answers_list, id)
 	
 	# if you don't find any, return 404
 	if len(answerlist) == 0:
@@ -179,7 +182,7 @@ def create_survey():
 @app.route('/questions/', methods=['POST'])
 def create_question():
 	
-	# if not a json request, or request doesn't have a question text, return 400
+	# if not a json request, or req doesn't have a question text, return 400
 	if not request.json or not 'text_q' in request.json:
 		abort(400)
 
@@ -206,8 +209,9 @@ def create_response():
 	try:
 		response = models.Response(id_surveys=int(request.json['id_surveys']))
 
-		if validate_model_obj(models.Survey, int(request.json['id_surveys'])) == False:
-			print ('failed validate')
+		if validate_model_obj(models.Survey, int(request.json['id_surveys'])) \
+				== False:
+			# print ('failed validate')
 			abort(400)
 
 		# add survey to db
@@ -218,7 +222,7 @@ def create_response():
 		return jsonify({'task': response.dict}), 201
 
 	except:
-		print("error posting response")
+		# print("error posting response")
 		abort(400)
 
 @app.route('/answers/', methods=['POST'])
@@ -227,14 +231,21 @@ def create_answer():
 	# if not a json request, or doesn't have answer text 
 	# or doesn't have a related survey response or related question
 	# throw a 400 error
-	if not request.json or not ('text_a' and 'id_questions' and 'id_responses')\
-			in request.json:
+	if not request.json or not \
+			('text_a' and 'id_questions' and 'id_responses') in request.json:
 		abort(400)
 
 	try:
 		answer = models.Answer(text_a=str(request.json['text_a']),
 							   id_questions=int(request.json['id_questions']),
 							   id_responses=int(request.json['id_responses']))
+
+		if validate_model_obj(models.Answer, 
+				int(request.json['id_questions'])) == False or \
+				validate_model_obj(models.Answer, 
+				int(request.json['id_responses'])) == False:
+			# print ('failed validate')
+			abort(400)
 		
 		# add survey to db
 		db.session.add(answer)
