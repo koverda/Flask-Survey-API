@@ -3,28 +3,48 @@ from flask import make_response, request, url_for
 from app import app, models, db
 
 
-# helper functions
+def validate_model_obj(model_obj, check_id):
+	"""Validates that the model object exists with the specified id
 
-# pulling and formatting model data as needed
+	model_obj - model object to validate
+	id - value of id we are trying to match for said object
+	"""
+	if model_obj.query.get(check_id) != None:
+		return True # found matching id
+	else:
+		return False # no match
+
 def refresh_model(model_obj):
+	"""Update model data, returns it as a list of dictionaries
+
+	model_obj - model object to update and return
+	"""
 	model_as_list = []
 	model_ents = model_obj.query.all()
 	for model_ent in model_ents:
 		model_as_list.append(model_ent.dict)
 	return model_as_list
 
-# make URIs for navigating API
 def make_uri(thing, fcn_name):
-    new_thing = {}
-    for field in thing:
-        if field == 'id':
-            new_thing['uri'] = url_for(fcn_name, id=thing['id'], _external=True)
-        else:
-            new_thing[field] = thing[field]
-    return new_thing
+	"""Make URIs for navigating API
 
-# searches list for id
+	thing - what we want to make into a URI
+	fcn_name - target endpoint of URI
+	"""
+	new_thing = {}
+	for field in thing:
+		if field == 'id':
+			new_thing['uri'] = url_for(fcn_name, id=thing['id'], _external=True)
+		else:
+			new_thing[field] = thing[field]
+	return new_thing
+
 def match_id(check_list, check_id):
+	"""Search list of dictionaries for entry that matches specified id
+
+	check_list - list we are looking in
+	check_id - id we are looking for 
+	"""
 	matches = []
 	for item in check_list:
 		if item['id'] == check_id:
@@ -37,9 +57,9 @@ def match_id(check_list, check_id):
 # index page
 @app.route('/', methods = ['GET'])
 def index():
-    return "Hello, World!"
-    # TODO: add root contents (surveys, questions, etc)
-    # look at tables in db, pop em out as list/dict
+	return "Hello, World!"
+	# TODO: add root contents (surveys, questions, etc)
+	# look at tables in db, pop em out as list/dict
 
 
 # -------------------- GET All Items Routers --------------------
@@ -185,7 +205,11 @@ def create_response():
 
 	try:
 		response = models.Response(id_surveys=int(request.json['id_surveys']))
-		
+
+		if validate_model_obj(models.Survey, int(request.json['id_surveys'])) == False:
+			print ('failed validate')
+			abort(400)
+
 		# add survey to db
 		db.session.add(response)
 		db.session.commit()
@@ -194,6 +218,7 @@ def create_response():
 		return jsonify({'task': response.dict}), 201
 
 	except:
+		print("error posting response")
 		abort(400)
 
 @app.route('/answers/', methods=['POST'])
@@ -236,10 +261,10 @@ def update_survey(id):
 		abort(400)
 	if 'name' in request.json and type(request.json['name']) != unicode:
 		abort(400)
-	if 'list_q' in request.json and type(request.json['list_q']) is not unicode:
+	if 'list_q' in request.json and type(request.json['list_q']) != unicode:
 		abort(400)
 
-    # update db
+	# update db
 	survey_to_update.name = request.json.get('name', survey_to_update.name)
 	survey_to_update.list_q = request.json.get('list_q',survey_to_update.list_q)
 	db.session.commit()
@@ -257,10 +282,10 @@ def update_question(id):
 		abort(404)
 	if not request.json:
 		abort(400)
-	if 'text_q' in request.json and type(request.json['text_q']) is not unicode:
+	if 'text_q' in request.json and type(request.json['text_q']) != unicode:
 		abort(400)
 
-    # update db
+	# update db
 	question_to_update.text_q = \
 			request.json.get('text_q',question_to_update.text_q)
 	db.session.commit()
@@ -278,11 +303,12 @@ def update_response(id):
 		abort(404)
 	if not request.json:
 		abort(400)
-	if 'id_surveys' in request.json and type(request.json['id_surveys']) != unicode:
+	if 'id_surveys' in request.json and \
+			type(request.json['id_surveys']) != unicode:
 		abort(400)
 
 
-    # update db
+	# update db
 	response_to_update.id_surveys = \
 			request.json.get('id_surveys', response_to_update.name)
 	db.session.commit()
@@ -300,16 +326,17 @@ def update_answer(id):
 		abort(404)
 	if not request.json:
 		abort(400)
-	if 'text_a' in request.json and type(request.json['text_a']) != unicode:
+	if 'text_a' in request.json and \
+			type(request.json['text_a']) != unicode:
 		abort(400)
-	if 'id_questions' in request.json and type(request.json['id_questions']) \
-			is not unicode:
+	if 'id_questions' in request.json and \
+			type(request.json['id_questions']) != unicode:
 		abort(400)
-	if 'id_responses' in request.json and type(request.json['id_responses']) \
-			is not unicode:
+	if 'id_responses' in request.json and \
+			type(request.json['id_responses']) != unicode:
 		abort(400)
 
-    # update db
+	# update db
 	answer_to_update.text_a = \
 			request.json.get('text_a', answer_to_update.text_a)
 	answer_to_update.id_questions = \
@@ -386,4 +413,4 @@ def not_found(error):
 
 @app.errorhandler(400)
 def not_found(error):
-	return make_response(jsonify({'error': 'Bad Request'}), 404)
+	return make_response(jsonify({'error': 'Bad Request'}), 400)
