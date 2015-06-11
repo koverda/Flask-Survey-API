@@ -2,6 +2,23 @@ from flask import render_template, jsonify, abort
 from flask import make_response, request, url_for
 from app import app, models, db
 
+def list_q_link(survey_obj):
+	"""Links to associated questions given a survey object with a valid 
+	question list
+
+	survey_obj - survey object
+	"""
+	if survey_obj['list_q'] != None and survey_obj['list_q'] != '':
+		# list of questions exists
+		q_id_list = str(survey_obj['list_q']).split(',')
+
+		# go thru q_id_list create dictionary with key = q_id, value = uri
+		q_id_links = {}
+		for q_id in q_id_list:
+			q_id_links[q_id] = url_for('get_question', id=q_id, _external=True)
+		survey_obj['list_q'] = q_id_links
+	return survey_obj
+
 
 def validate_model_obj(model_obj, check_id):
 	"""Validates that the model object exists with the specified id
@@ -69,6 +86,9 @@ def index():
 @app.route('/surveys/', methods=['GET'])
 def get_surveys():
 	surveys_list = refresh_model(models.Survey)
+	for survey in surveys_list:
+		survey = list_q_link(survey)
+	#surveys_list = list_q_link(surveys_list) # this line is wrong
 	return	jsonify({'surveys': [make_uri(survey, 'get_survey') for \
 			survey in surveys_list]})
 
@@ -317,7 +337,9 @@ def update_response(id):
 	if 'id_surveys' in request.json and \
 			type(request.json['id_surveys']) != unicode:
 		abort(400)
-
+	if validate_model_obj(models.Response, int(request.json['id_surveys'])) \
+			== False:
+		abort(400)
 
 	# update db
 	response_to_update.id_surveys = \
@@ -345,6 +367,12 @@ def update_answer(id):
 		abort(400)
 	if 'id_responses' in request.json and \
 			type(request.json['id_responses']) != unicode:
+		abort(400)
+	if validate_model_obj(models.Answer, int(request.json['id_responses'])) \
+			== False:
+		abort(400)
+	if validate_model_obj(models.Answer, int(request.json['id_questions'])) \
+			== False:
 		abort(400)
 
 	# update db
